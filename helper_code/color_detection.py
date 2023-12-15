@@ -1,3 +1,57 @@
+import numpy as np
+from PIL import Image, ImageEnhance
+from scipy.spatial import KDTree
+from webcolors import (
+    CSS3_HEX_TO_NAMES,
+    hex_to_rgb,
+)
+
+def alter_image(image_name, filter_type):
+    image = Image.open(image_name)
+    image = image.convert('RGB')
+    if filter_type == "Contrast":
+        filter = ImageEnhance.Contrast(image)
+        image = filter.enhance(2)
+        return image
+
+def get_all_color_names():
+    css3_db = CSS3_HEX_TO_NAMES
+    color_names = []
+    color_rgb_values = []
+    for color_hex, color_name in css3_db.items():
+        color_names.append(color_name)
+        color_rgb_values.append(hex_to_rgb(color_hex))
+    return color_names, color_rgb_values
+
+COLOR_NAMES, COLOR_RGB_VALUES = get_all_color_names()
+KDT_DB = KDTree(COLOR_RGB_VALUES)
+
+def convert_rgb_to_names(rgb_tuple, memo):
+    _, index = KDT_DB.query(rgb_tuple)
+    simple_color = complex_to_simple_color[COLOR_NAMES[index]]
+    memo[simple_color] = memo.get(simple_color, 0) + 1
+    return simple_color
+
+def get_color_masks(image, rgb_colors):
+
+    width, height = image.size
+    masks = {}
+    for c in rgb_colors:
+        masks[c] = np.zeros((width, height))
+    
+    memo = {}
+    for y in range(0, height):
+        for x in range(0, width):
+
+            r, g, b = image.getpixel((x, y))
+
+            new_color = convert_rgb_to_names([r,g,b], memo)
+
+            if new_color in rgb_colors:
+                masks[new_color][x, y] = 1
+                
+    return masks, width, height, memo
+
 complex_to_simple_color = {
     'aliceblue': 'white',
     'antiquewhite': 'white',
