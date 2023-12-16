@@ -7,6 +7,7 @@ from helper_code.legend_extraction import get_legend_extraction
 from helper_code.mask_detection import get_bounding_box, get_main_mask
 from helper_code.color_detection import alter_image, get_color_masks
 import json
+from PIL import Image
 
 def is_valid_color(color):
     try:
@@ -52,14 +53,14 @@ def do_analysis(image_number, predictor):
             point_labels=input_label,
             multimask_output=True,
         )
-    main_mask, _ = get_main_mask(masks, scores)
+    main_mask, _ = get_main_mask(masks, scores, image)
 
     n_image = image.copy()
     _, boundingBox = get_bounding_box(main_mask, n_image)
     
     return image_name, boundingBox
 
-def do_complete_analysis(wBox, hBox, metadata, image_name, boundingBox, legend = None):
+def do_complete_analysis(wBox, hBox, metadata, image_name, boundingBox, legend = None, image_alter = True):
 
     x_axis = metadata["x-axis"]["range"]
     y_axis = metadata["y-axis"]["range"]
@@ -73,7 +74,15 @@ def do_complete_analysis(wBox, hBox, metadata, image_name, boundingBox, legend =
         axis_labels.append(label)
         rgb_colors.append(color)
     
-    image = alter_image(image_name, "Contrast")
+    image = None
+    if image_alter:
+        image = alter_image(image_name, "Contrast")
+    else:
+        image = alter_image(image_name, "")
+    plt.figure(figsize=(10,10))
+    plt.imshow(image)
+
+    
     color_masks, width, height, memo = get_color_masks(image, rgb_colors)
 
     print("This image has the following colors", memo)
@@ -83,13 +92,13 @@ def do_complete_analysis(wBox, hBox, metadata, image_name, boundingBox, legend =
 
     return coordinates, x_axis_title, y_axis_title, axis_labels, rgb_colors, x_axis, y_axis, memo
 
-def get_reconstructed_plot(image_num, sam_predictor, yolo_model):
+def get_reconstructed_plot(image_num, sam_predictor, yolo_model, image_alter):
     prompt = {}
     with open('../plot_json/'+str(image_num)+'.json', 'r') as file:
         prompt = json.load(file)
     
     image_name, boundingBox = do_analysis(image_num, sam_predictor)
     legend = get_legend_extraction(image_name, yolo_model)
-    coordinates, x_axis_title, y_axis_title, axis_labels, rgb_colors, x_range, y_range, memo = do_complete_analysis(1, 1, prompt, image_name, boundingBox, legend)
+    coordinates, x_axis_title, y_axis_title, axis_labels, rgb_colors, x_range, y_range, memo = do_complete_analysis(1, 1, prompt, image_name, boundingBox, legend, image_alter)
 
     return coordinates, x_axis_title, y_axis_title, axis_labels, rgb_colors, x_range, y_range, memo

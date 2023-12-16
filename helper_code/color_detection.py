@@ -12,7 +12,13 @@ def alter_image(image_name, filter_type):
     if filter_type == "Contrast":
         filter = ImageEnhance.Contrast(image)
         image = filter.enhance(2)
-        return image
+    elif filter_type == "Brightness":
+        filter = ImageEnhance.Brightness(image)
+        image = filter.enhance(2)
+    elif filter_type == "Sharpness":
+        filter = ImageEnhance.Sharpness(image)
+        image = filter.enhance(2)
+    return image
 
 def get_all_color_names():
     css3_db = CSS3_HEX_TO_NAMES
@@ -151,7 +157,7 @@ complex_to_simple_color = {
     'olive': 'green',
     'olivedrab': 'green',
     'orange': 'orange',
-    'orangered': 'orange',
+    'orangered': 'red',
     'orchid': 'purple',
     'palegoldenrod': 'yellow',
     'palegreen': 'green',

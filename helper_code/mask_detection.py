@@ -21,10 +21,14 @@ def show_box(box, ax):
     w, h = box[2] - box[0], box[3] - box[1]
     ax.add_patch(plt.Rectangle((x0, y0), w, h, edgecolor='green', facecolor=(0,0,0,0), lw=2))    
     
-def get_main_mask(masks, scores):
+def get_main_mask(masks, scores, image=None):
     sorted_masks = sorted(zip(masks, scores), key=lambda x: x[1], reverse=True)
     main_mask = sorted_masks[0][0]
     main_mask_score = sorted_masks[0][1]
+    if image is not None:
+        plt.figure(figsize=(10,10))
+        plt.imshow(image)
+        show_mask(main_mask, plt.gca())
     return main_mask, main_mask_score 
 
 def get_bounding_box(main_mask, new_image):
