@@ -4,7 +4,7 @@ import matplotlib.colors as mcolors
 import numpy as np
 from helper_code.graph_reconstruction import convertPoint, get_filtered_answer, get_middle_coordinate
 from helper_code.legend_extraction import get_legend_extraction
-from helper_code.mask_detection import get_bounding_box, get_main_mask
+from helper_code.mask_detection import clean_mask_edges_and_convert_back, get_bounding_box, get_main_mask, show_mask
 from helper_code.color_detection import alter_image, get_color_masks
 import json
 from PIL import Image
@@ -53,10 +53,14 @@ def do_analysis(image_number, predictor):
             point_labels=input_label,
             multimask_output=True,
         )
-    main_mask, _ = get_main_mask(masks, scores, image)
+    
+    predictor.reset_image()
+    
+    main_mask, score = get_main_mask(masks, scores, image)
+    main_mask_cleaned = clean_mask_edges_and_convert_back(main_mask)
 
     n_image = image.copy()
-    _, boundingBox = get_bounding_box(main_mask, n_image)
+    _, boundingBox = get_bounding_box(main_mask_cleaned, n_image)
     
     return image_name, boundingBox
 

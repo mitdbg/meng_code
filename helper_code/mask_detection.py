@@ -1,5 +1,47 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import cv2
+
+def keep_largest_component(mask):
+    """
+    Keep only the largest connected component in the mask.
+
+    Parameters:
+    mask (numpy.ndarray): The binary mask.
+
+    Returns:
+    numpy.ndarray: The mask with only the largest connected component.
+    """
+    # Find connected components
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+
+    # If there's no component (other than background), return the same mask
+    if num_labels <= 1:
+        return mask
+
+    # Find the largest component, ignoring the background (label 0)
+    largest_label = 1 + np.argmax(stats[1:, cv2.CC_STAT_AREA])
+    
+    # Create a mask of the largest component
+    largest_component = (labels == largest_label).astype(np.uint8)
+
+    return largest_component
+
+def clean_mask_edges_and_convert_back(mask, kernel_size=3):
+    # Convert the boolean mask to uint8 format
+    mask_uint8 = (mask * 255).astype(np.uint8)
+
+    # Create the kernel for morphological operations
+    kernel = np.ones((kernel_size, kernel_size), np.uint8)
+
+    # Perform opening to remove noise and then closing to close small holes
+    mask_cleaned = cv2.morphologyEx(mask_uint8, cv2.MORPH_OPEN, kernel)
+    mask_cleaned = cv2.morphologyEx(mask_cleaned, cv2.MORPH_CLOSE, kernel)
+
+    # Keep only the largest connected component
+    largest_component = keep_largest_component(mask_cleaned)
+
+    return largest_component
 
 def show_mask(mask, ax, random_color=False):
     if random_color:
@@ -42,12 +84,11 @@ def get_bounding_box(main_mask, new_image):
 
     for i in range(len(new_image)):
         for j in range(len(new_image[0])):
-            if not main_mask[i][j]:
-                new_image[i][j] = [0, 0, 0]
-            else:
+            if main_mask[i][j]:
                 if not topLeft:
                     boundingBox["topLeft"] = [j, i]
                     topLeft = True
+                boundingBox["topLeft"] = [min(boundingBox["topLeft"][0], j), min(boundingBox["topLeft"][1], i)]
                 boundingBox["bottomRight"] = [max(boundingBox["bottomRight"][0], j), max(boundingBox["bottomRight"][1], i)]
     
     return new_image, boundingBox
