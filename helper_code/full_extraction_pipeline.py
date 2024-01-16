@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 import matplotlib.colors as mcolors
 import numpy as np
 from helper_code.graph_reconstruction import convertPoint, get_filtered_answer, get_middle_coordinate
-from helper_code.legend_extraction import get_legend_extraction
+from helper_code.legend_extraction import extracted_mask, get_legend_extraction
 from helper_code.mask_detection import clean_mask_edges_and_convert_back, get_bounding_box, get_main_mask, show_mask
 from helper_code.color_detection import alter_image, get_color_masks
 import json
@@ -16,7 +16,7 @@ def is_valid_color(color):
     except ValueError:
         return False
     
-def get_points_new(color_masks, width, height, boundingBox, color, wBox, hBox, x_axis, y_axis, legend):
+def get_points_new(color_masks, width, height, boundingBox, color, wBox, hBox, x_axis, y_axis, extra_info):
 
     graph = []
     mask = color_masks[color]
@@ -24,7 +24,7 @@ def get_points_new(color_masks, width, height, boundingBox, color, wBox, hBox, x
     for x0 in range(boundingBox["topLeft"][0], boundingBox["bottomRight"][0], wBox):
         for y0 in range(boundingBox["topLeft"][1], boundingBox["bottomRight"][1], hBox):
 
-            if legend and legend["top_x"] - legend["width"] / 2 <= x0 <= legend["top_x"] + legend["width"] / 2 and legend["top_y"] - legend["height"] / 2 <= y0 <= legend["top_y"] + legend["height"] / 2:
+            if extra_info is not None and extra_info[y0, x0] == 1:
                 continue
             else:
                 x, y = get_middle_coordinate(x0, y0, wBox, hBox)
@@ -64,7 +64,7 @@ def do_analysis(image_number, predictor):
     
     return image_name, boundingBox
 
-def do_complete_analysis(wBox, hBox, metadata, image_name, boundingBox, legend = None, image_alter = True):
+def do_complete_analysis(wBox, hBox, metadata, image_name, boundingBox, extra_info = None, image_alter = True):
 
     x_axis = metadata["x-axis"]["range"]
     y_axis = metadata["y-axis"]["range"]
@@ -92,7 +92,7 @@ def do_complete_analysis(wBox, hBox, metadata, image_name, boundingBox, legend =
     print("This image has the following colors", memo)
 
     for color in rgb_colors:
-        coordinates.append(get_points_new(color_masks, width, height, boundingBox, color, wBox, hBox, x_axis, y_axis, legend))
+        coordinates.append(get_points_new(color_masks, width, height, boundingBox, color, wBox, hBox, x_axis, y_axis, extra_info))
 
     return coordinates, x_axis_title, y_axis_title, axis_labels, rgb_colors, x_axis, y_axis, memo
 
@@ -102,7 +102,8 @@ def get_reconstructed_plot(image_num, sam_predictor, yolo_model, image_alter):
         prompt = json.load(file)
     
     image_name, boundingBox = do_analysis(image_num, sam_predictor)
-    legend = get_legend_extraction(image_name, yolo_model)
-    coordinates, x_axis_title, y_axis_title, axis_labels, rgb_colors, x_range, y_range, memo = do_complete_analysis(1, 1, prompt, image_name, boundingBox, legend, image_alter)
+    # legend = get_legend_extraction(image_name, yolo_model)
+    extra_info = extracted_mask(image_name, yolo_model)
+    coordinates, x_axis_title, y_axis_title, axis_labels, rgb_colors, x_range, y_range, memo = do_complete_analysis(1, 1, prompt, image_name, boundingBox, extra_info, image_alter)
 
     return coordinates, x_axis_title, y_axis_title, axis_labels, rgb_colors, x_range, y_range, memo
