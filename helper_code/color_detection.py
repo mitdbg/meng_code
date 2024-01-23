@@ -53,6 +53,10 @@ def get_color_masks(image, rgb_colors):
 
             new_color = convert_rgb_to_names([r,g,b], memo)
 
+            if new_color == "blue":
+                print([r, g, b])
+                print(new_color)
+
             if new_color in rgb_colors:
                 masks[new_color][x, y] = 1
                 
