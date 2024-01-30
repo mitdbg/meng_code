@@ -38,7 +38,7 @@ def convert_rgb_to_names(rgb_tuple, memo):
     memo[simple_color] = memo.get(simple_color, 0) + 1
     return simple_color
 
-def get_color_masks(image, rgb_colors):
+def get_color_masks(image, rgb_colors, boundingBox, margin = 10):
 
     width, height = image.size
     masks = {}
@@ -46,6 +46,10 @@ def get_color_masks(image, rgb_colors):
         masks[c] = np.zeros((width, height))
     
     memo = {}
+
+    x_left, y_top = boundingBox["topLeft"]
+    x_right, y_bottom = boundingBox["bottomRight"]
+
     for y in range(0, height):
         for x in range(0, width):
 
@@ -53,12 +57,13 @@ def get_color_masks(image, rgb_colors):
 
             new_color = convert_rgb_to_names([r,g,b], memo)
 
-            if new_color == "blue":
-                print([r, g, b])
-                print(new_color)
-
             if new_color in rgb_colors:
-                masks[new_color][x, y] = 1
+                if new_color in ["gray", "grey", "white", "black"]:
+                    if (x >= x_left + margin) and (x <= x_right - margin) and (y >= y_top + margin) and (y <= y_bottom - margin):
+                        masks[new_color][x, y] = 1
+                elif max(abs(r - g), abs(g - b), abs(r - b)) > margin:
+                    masks[new_color][x, y] = 1
+                
                 
     return masks, width, height, memo
 

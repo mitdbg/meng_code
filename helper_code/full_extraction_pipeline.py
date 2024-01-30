@@ -64,7 +64,7 @@ def do_analysis(image_number, predictor):
     
     return image_name, boundingBox
 
-def do_complete_analysis(wBox, hBox, metadata, image_name, boundingBox, extra_info = None, image_alter = True):
+def do_complete_analysis(wBox, hBox, metadata, image_name, boundingBox, extra_info = None, image_alter = True, margin = 10):
 
     x_axis = metadata["x-axis"]["range"]
     y_axis = metadata["y-axis"]["range"]
@@ -87,7 +87,7 @@ def do_complete_analysis(wBox, hBox, metadata, image_name, boundingBox, extra_in
     plt.imshow(image)
 
     
-    color_masks, width, height, memo = get_color_masks(image, rgb_colors)
+    color_masks, width, height, memo = get_color_masks(image, rgb_colors, boundingBox, margin)
 
     print("This image has the following colors", memo)
 
@@ -96,14 +96,13 @@ def do_complete_analysis(wBox, hBox, metadata, image_name, boundingBox, extra_in
 
     return coordinates, x_axis_title, y_axis_title, axis_labels, rgb_colors, x_axis, y_axis, memo
 
-def get_reconstructed_plot(image_num, sam_predictor, yolo_model, image_alter):
+def get_reconstructed_plot(image_num, sam_predictor, yolo_model, image_alter, margin):
     prompt = {}
     with open('../plot_json/'+str(image_num)+'.json', 'r') as file:
         prompt = json.load(file)
     
     image_name, boundingBox = do_analysis(image_num, sam_predictor)
-    # legend = get_legend_extraction(image_name, yolo_model)
     extra_info = extracted_mask(image_name, yolo_model)
-    coordinates, x_axis_title, y_axis_title, axis_labels, rgb_colors, x_range, y_range, memo = do_complete_analysis(1, 1, prompt, image_name, boundingBox, extra_info, image_alter)
+    coordinates, x_axis_title, y_axis_title, axis_labels, rgb_colors, x_range, y_range, memo = do_complete_analysis(1, 1, prompt, image_name, boundingBox, extra_info, image_alter, margin)
 
     return coordinates, x_axis_title, y_axis_title, axis_labels, rgb_colors, x_range, y_range, memo
