@@ -6,7 +6,8 @@ from helper_code.graph_reconstruction import convertPoint, get_filtered_answer, 
 from helper_code.legend_extraction import extracted_mask
 from helper_code.mask_detection import clean_mask_edges_and_convert_back, get_bounding_box, get_main_mask, show_mask
 from helper_code.color_detection import alter_image, get_color_masks
-from helper_code.axes_extraction import get_true_range
+from helper_code.axes_extraction import get_true_range, get_second_y_range
+from helper_code.metadata_extraction import ask_gpt
 from helper_code.bounding_box import distance, get_intersection_points
 import json
 from PIL import Image
@@ -94,6 +95,7 @@ def do_complete_analysis(wBox, hBox, metadata, image_name, boundingBox, extra_in
     y_axis = metadata["y-axis"]["range"]
     x_axis_title = metadata["x-axis"]["title"]
     y_axis_title = metadata["y-axis"]["title"]
+    second_y_axis_title = metadata["second-y-axis"]["title"]
 
     true_x_range, true_y_range = get_true_range(image_name, boundingBox, {'x': x_axis, 'y': y_axis})
     
@@ -125,23 +127,63 @@ def do_complete_analysis(wBox, hBox, metadata, image_name, boundingBox, extra_in
     for color in rgb_colors:
         coordinates.append(get_points_new(color_masks, width, height, boundingBox, color, wBox, hBox, true_x_range, true_y_range, extra_info))
 
-    return coordinates, x_axis_title, y_axis_title, axis_labels, rgb_colors, true_x_range, true_y_range, memo
+    return coordinates, x_axis_title, y_axis_title, second_y_axis_title, axis_labels, rgb_colors, true_x_range, true_y_range, memo
 
 def get_reconstructed_plot(image_num, sam_predictor, yolo_model, image_alter, margin):
     prompt = {}
-    with open('../plot_json/'+str(image_num)+'.json', 'r') as file:
-        prompt = json.load(file)
     
     image_name, boundingBox = get_fast_bounding_box(image_num, sam_predictor)
+    
+    try: 
+        response = ask_gpt(image_name)
+        answer = response["choices"][0]["message"]["content"]
+        print(answer)
+        cleaned = answer.replace('```json\n', '').replace('\n```', '')
+        prompt = json.loads(cleaned)
+    except:
+        prompt = {
+            "x-axis": {
+                "title": "X Axis Title",
+                "range": [0, 100],
+            },
+            "y-axis": {
+                "title": "Y Axis Title",
+                "range": [0, 100],
+            },
+            "second-y-axis": {
+                "title": None,
+                "range": None,
+            },
+            'types': [
+                ['Type 1', 'red'],
+                ['Type 2', 'blue'],
+                ['Type 3', 'green']
+            ]
+        }
+    
+    print(prompt)
+    with open("../results/" + str(image_num) + "/metadata.json", 'w') as json_file:
+        json.dump(prompt, json_file, indent=4)
+    
+    second_y_range = None
+    if "second-y-axis" in prompt and prompt["second-y-axis"]["title"] is not None:
+        print("SECOND RANGE")
+        second_y_range = get_second_y_range(image_name, boundingBox, prompt["second-y-axis"]["range"])
+
+        
     print(boundingBox)
+    with open("../results/" + str(image_num) + "/bounding_box.json", 'w') as json_file:
+        json.dump(boundingBox, json_file, indent=4)
 
     image = cv2.imread(image_name)
     cv2.rectangle(image, boundingBox['topLeft'], boundingBox['bottomRight'], (0, 0, 255), 2)
     plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
     plt.title(f'Bounding Box in Image {image_num}')
+    
+    plt.savefig("../results/"+str(image_num)+"/bounding_box.png")
     plt.show()
     
-    extra_info = extracted_mask(image_name, yolo_model)
-    coordinates, x_axis_title, y_axis_title, axis_labels, rgb_colors, x_range, y_range, memo = do_complete_analysis(1, 1, prompt, image_name, boundingBox, extra_info, image_alter, margin)
+    extra_info = extracted_mask(image_num, image_name, yolo_model)
+    coordinates, x_axis_title, y_axis_title, second_y_axis_title, axis_labels, rgb_colors, x_range, y_range, memo = do_complete_analysis(1, 1, prompt, image_name, boundingBox, extra_info, image_alter, margin)
 
-    return coordinates, x_axis_title, y_axis_title, axis_labels, rgb_colors, x_range, y_range, memo
+    return coordinates, x_axis_title, y_axis_title, second_y_axis_title, axis_labels, rgb_colors, x_range, y_range, memo, second_y_range

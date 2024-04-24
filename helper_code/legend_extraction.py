@@ -22,10 +22,12 @@ def get_legend_extraction(image_name, model):
                 }
     return None
 
-def extracted_mask(image_name, model):
+def extracted_mask(image_num, image_name, model):
     # visualize your prediction
     result = model.predict(image_name, confidence=40, overlap=30)
     result.plot()
+
+    result.save(f'../results/{image_num}/annotation.png')
 
     final = result.json()
 

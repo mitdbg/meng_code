@@ -163,7 +163,6 @@ def calculate_x_axis(ocr_results, bounding_box, chat_gpt_info):
     else:
         return None, None, None
     
-
 def get_true_range(image_name, boundingBox, chat_gpt_info):
     # Initialize the Textract client
     textract = boto3.client('textract')
@@ -242,5 +241,119 @@ def get_true_range(image_name, boundingBox, chat_gpt_info):
 
         y_range.append(y)
 
+    if x_range is None or x_range[0] is None or type(x_range[0]) is str or x_range[1] is None or type(x_range[1]) is str or x_range[1] == x_range[0]:
+        x_range = [0, 100]
+
+    if y_range is None or y_range[0] is None or type(y_range[0]) is str or y_range[1] is None or type(y_range[1]) is str or y_range[1] == y_range[0]:
+        y_range = [0, 100]
 
     return x_range, y_range
+
+def find_nearest_second_y_candidate(ocr_results, point):
+    nearest = None
+    min_distance = float('inf')
+
+    for text, coords in ocr_results:
+        x, y = get_mean_coordinate(coords)
+        if x > point[0] and is_number(text):
+            distance = abs(y - point[1])
+            if distance < min_distance:
+                min_distance = distance
+                if text == 'o':
+                    text = '0'
+                nearest = {'text': text, 'coords': coords}
+
+    return nearest
+
+def get_second_y_range(image_name, boundingBox, second_range):
+    # Initialize the Textract client
+    textract = boto3.client('textract')
+
+    # Load the image file
+    with open(image_name, 'rb') as document:
+        img_test = bytearray(document.read())
+
+    # Call Amazon Textract
+    response = textract.detect_document_text(Document={'Bytes': img_test})
+
+    # Process Textract response to match desired output format
+    ocr_results = []
+    for item in response['Blocks']:
+        if item['BlockType'] == 'LINE' and 'Confidence' in item and item['Confidence'] > 50:  # Adjust confidence as needed
+            text = item['Text']
+            # Extract bounding box coordinates scaled to image dimensions
+            width, height = Image.open(image_name).size
+            box = item['Geometry']['BoundingBox']
+            x = box['Left'] * width
+            y = box['Top'] * height
+            w = box['Width'] * width
+            h = box['Height'] * height
+            box = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]]
+            ocr_results.append((text, box))
+
+    top_right = [boundingBox['bottomRight'][0], boundingBox['topLeft'][1]]
+    bottom_right = [boundingBox['bottomRight'][0], boundingBox['bottomRight'][1]]
+
+    rmax = find_nearest_second_y_candidate(ocr_results, top_right)
+    rmin = find_nearest_second_y_candidate(ocr_results, bottom_right)
+
+    print(rmin)
+    print(rmax)
+
+    if rmin and rmax:
+        print("SECOND Y MIN", rmin["text"])
+        print("SECOND Y MAX", rmax["text"])
+
+        try:
+            y_sb = float(rmin["text"])
+        except ValueError:
+            print("error with value on second y min")
+            y_sb = float(second_range[0])
+
+        try:
+            y_sa = float(rmax["text"])
+        except ValueError:
+            print("error with value on second y max")
+            y_sa = float(second_range[1])
+        print("SEMANTIC SECOND Y MIN", y_sb)
+        print("SEMANTIC SECOND Y MAX", y_sa)
+
+        y_b_min = get_mean_coordinate(rmin['coords'])[1]
+        y_a_max = get_mean_coordinate(rmax['coords'])[1]
+
+        print("SECOND Y")
+        print("OCR DIFF", y_a_max - y_b_min)
+        print("SEM DIFF", y_sa - y_sb)
+        
+        ratio = (y_b_min - y_a_max)/(y_sb - y_sa)
+        print("OCR RATIO", ratio)
+
+        bounding_box_pixel_difference = boundingBox['topLeft'][1] - boundingBox['bottomRight'][1]
+        real_difference = bounding_box_pixel_difference/ratio
+
+        pixel_diff_from_base_point = (y_b_min - boundingBox['bottomRight'][1])
+        print("PIXEL DIFF", pixel_diff_from_base_point)
+
+        real_y_diff_from_base_point = pixel_diff_from_base_point/ratio 
+        print("REAL DIFF FROM BASE POINT", real_y_diff_from_base_point)
+        
+        y_min = y_sb - real_y_diff_from_base_point
+        y_max = y_min + real_difference
+
+        print("SECOND Y_MIN", y_min)
+        print("SECOND Y_MAX", y_max)
+
+        y_range = []
+        for y in [y_min, y_max]:
+            if y is None or np.isnan(y) or not np.isfinite(y):
+                y_range = y_sb
+                print("second y is in fault condition")
+                break
+
+            y_range.append(y)
+
+
+        return y_range
+    else: 
+        print("ERROR SECOND RANGE")
+        return second_range
