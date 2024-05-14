@@ -7,4 +7,5 @@
 4. Add in all the plot images that you want to test the pipeline on inside of `plot_images`.
 
 *Run the Pipeline*
+
 To test the pipeline, run `pipeline.ipynb`.
