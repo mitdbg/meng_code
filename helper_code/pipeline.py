@@ -1,7 +1,19 @@
 import os
 import matplotlib.pyplot as plt
 from helper_code.full_extraction_pipeline import is_valid_color, get_reconstructed_plot
-from helper_code.dual_axis import second_axis_clustering_elbow_method
+from helper_code.dual_axis import create_df, second_axis_clustering_elbow_method
+
+def downsample_by_color(df, fraction=0.4, random_state=42):
+    # Ensure fraction is between 0 and 1
+    if not (0 <= fraction <= 1):
+        raise ValueError("Fraction must be between 0 and 1.")
+    
+    # Group by color and downsample within each group
+    grouped = df.groupby('Color')
+    downsampled = grouped.apply(lambda x: x.sample(frac=fraction, random_state=random_state) if len(x) > 1 else x)
+    # Reset index to clean up the DataFrame
+    downsampled.reset_index(drop=True, inplace=True)
+    return downsampled
 
 def run_pipeline(image_num, min_samples, predictor, model):
     directory_path = f"../results/{image_num}"
@@ -42,3 +54,7 @@ def run_pipeline(image_num, min_samples, predictor, model):
             all_downsampled_data.to_csv('../results/'+str(image_num)+'/points.csv', index=False)
         except:
             print("ERROR CLUSTERING IMAGE", image_num)
+    else:
+        df = create_df(rgb_colors, coordinates)
+        downsampled_df = downsample_by_color(df, fraction=0.4)
+        downsampled_df.to_csv('../results/'+str(image_num)+'/points.csv', index=False)
