@@ -92,3 +92,27 @@ def get_bounding_box(main_mask, new_image):
                 boundingBox["bottomRight"] = [max(boundingBox["bottomRight"][0], j), max(boundingBox["bottomRight"][1], i)]
     
     return new_image, boundingBox
+
+
+def sam_bounding_box(image, predictor):
+    height, width = image.shape[:2]
+    input_point = np.array([[width // 2 - 50, height // 2 - 50], [width // 2 - 50, height // 2 + 50], [width // 2 + 50, height // 2 - 50], [width // 2 + 50, height // 2 + 50]])
+    input_label = np.array([1, 1, 1, 1])
+
+    predictor.set_image(image)
+
+    masks, scores, _ = predictor.predict(
+            point_coords=input_point,
+            point_labels=input_label,
+            multimask_output=True,
+        )
+    
+    predictor.reset_image()
+    
+    main_mask, score = get_main_mask(masks, scores, image)
+    main_mask_cleaned = clean_mask_edges_and_convert_back(main_mask)
+    n_image = image.copy()
+    print(n_image)
+    _, boundingBox = get_bounding_box(main_mask_cleaned, n_image)
+    
+    return boundingBox

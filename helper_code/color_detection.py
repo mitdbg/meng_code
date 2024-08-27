@@ -1,10 +1,8 @@
 import numpy as np
 from PIL import Image, ImageEnhance
+from helper_code.graph_reconstruction import get_points_new
 from scipy.spatial import KDTree
-from webcolors import (
-    CSS3_HEX_TO_NAMES,
-    hex_to_rgb,
-)
+import webcolors
 
 def alter_image(image_name, filter_type):
     image = Image.open(image_name)
@@ -21,12 +19,16 @@ def alter_image(image_name, filter_type):
     return image
 
 def get_all_color_names():
-    css3_db = CSS3_HEX_TO_NAMES
     color_names = []
     color_rgb_values = []
-    for color_hex, color_name in css3_db.items():
+
+    color_names = list(webcolors.CSS3_NAMES_TO_HEX.keys())
+    color_rgb_values = [webcolors.hex_to_rgb(hex_value) for hex_value in webcolors.CSS3_NAMES_TO_HEX.values()]
+    return color_names, color_rgb_values
+
+    for color_name in webcolors.names("css3"):
         color_names.append(color_name)
-        color_rgb_values.append(hex_to_rgb(color_hex))
+        color_rgb_values.append(webcolors.name_to_rgb(color_name))
     return color_names, color_rgb_values
 
 COLOR_NAMES, COLOR_RGB_VALUES = get_all_color_names()
@@ -34,8 +36,9 @@ KDT_DB = KDTree(COLOR_RGB_VALUES)
 
 def convert_rgb_to_names(rgb_tuple, memo):
     _, index = KDT_DB.query(rgb_tuple)
+    complex_color = COLOR_NAMES[index]
     simple_color = complex_to_simple_color[COLOR_NAMES[index]]
-    memo[simple_color] = memo.get(simple_color, 0) + 1
+    memo[complex_color] = memo.get(complex_color, 0) + 1
     return simple_color
 
 def get_color_masks(image, rgb_colors, boundingBox, margin = 10):
@@ -67,6 +70,24 @@ def get_color_masks(image, rgb_colors, boundingBox, margin = 10):
                 
     return masks, width, height, memo
 
+def color_extraction_module(image_name, prompt, boundingBox, x_range, y_range, extra_info):
+    image = alter_image(image_name, "Contrast")
+    axis_labels = []
+    rgb_colors = []
+    coordinates = []
+    for label, color in prompt["types"]:
+        axis_labels.append(label)
+        rgb_colors.append(color)
+
+    color_masks, width, height, memo = get_color_masks(image, rgb_colors, boundingBox, margin=10)
+
+    print(memo)
+
+    for color in rgb_colors:
+        coordinates.append(get_points_new(color_masks, width, height, boundingBox, color, 1, 1, x_range, y_range, extra_info))
+
+    return coordinates, axis_labels, rgb_colors, memo
+
 complex_to_simple_color = {
     'aliceblue': 'white',
     'antiquewhite': 'white',
@@ -92,6 +113,7 @@ complex_to_simple_color = {
     'darkcyan': 'blue',
     'darkgoldenrod': 'yellow',
     'darkgray': 'grey',
+    'darkgrey': 'grey',
     'darkgreen': 'green',
     'darkkhaki': 'yellow',
     'darkmagenta': 'purple',
@@ -103,11 +125,13 @@ complex_to_simple_color = {
     'darkseagreen': 'green',
     'darkslateblue': 'purple',
     'darkslategray': 'blue',
+    'darkslategrey': 'blue',
     'darkturquoise': 'blue',
     'darkviolet': 'purple',
     'deeppink': 'pink',
     'deepskyblue': 'blue',
     'dimgray': 'grey',
+    'dimgrey': 'grey',
     'dodgerblue': 'blue',
     'firebrick': 'red',
     'floralwhite': 'white',
@@ -118,6 +142,7 @@ complex_to_simple_color = {
     'gold': 'yellow',
     'goldenrod': 'yellow',
     'gray': 'grey',
+    'grey': 'grey',
     'green': 'green',
     'greenyellow': 'green',
     'honeydew': 'white',
@@ -135,12 +160,14 @@ complex_to_simple_color = {
     'lightcyan': 'white',
     'lightgoldenrodyellow': 'white',
     'lightgray': 'grey',
+    'lightgrey': 'grey',
     'lightgreen': 'green',
     'lightpink': 'pink',
     'lightsalmon': 'orange',
     'lightseagreen': 'blue',
     'lightskyblue': 'blue',
     'lightslategray': 'grey',
+    'lightslategrey': 'grey',
     'lightsteelblue': 'blue',
     'lightyellow': 'white',
     'lime': 'green',
@@ -192,6 +219,7 @@ complex_to_simple_color = {
     'skyblue': 'blue',
     'slateblue': 'purple',
     'slategray': 'gray',
+    'slategrey': 'grey',
     'snow': 'white',
     'springgreen': 'green',
     'steelblue': 'blue',

@@ -1,5 +1,8 @@
 import numpy as np
 import cv2
+from matplotlib import pyplot as plt
+import matplotlib.patches as patches
+from helper_code.mask_detection import sam_bounding_box
 
 def distance(point1, point2):
     """Calculate the Euclidean distance between two points."""
@@ -61,9 +64,7 @@ def combine_lines(lines, is_vertical=True, combine_threshold=30):
 
     return combined_lines
 
-def get_intersection_points(image_num):
-    image_name = '../plot_images/' + str(image_num) + '.png'
-    image = cv2.imread(image_name)
+def get_intersection_points(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     edges = cv2.Canny(gray, 50, 150, apertureSize=3)
 
@@ -96,18 +97,59 @@ def get_intersection_points(image_num):
     # Extend vertical and horizontal lines
     extended_vertical_lines = [extend_line(line, image.shape[1], image.shape[0], is_vertical=True) for line in selected_vertical]
     extended_horizontal_lines = [extend_line(line, image.shape[1], image.shape[0], is_vertical=False) for line in selected_horizontal]
-
-    # Draw extended lines
-    for line in extended_horizontal_lines + extended_vertical_lines:
-        x1, y1, x2, y2 = line
-        cv2.line(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
     
     intersection_points = []
     # Calculate and mark intersection points
     for v_line in extended_vertical_lines:
         for h_line in extended_horizontal_lines:
             intersection = find_intersection(v_line, h_line)
-            if intersection:
-                intersection_points.append(intersection)
-                cv2.circle(image, intersection, 5, (255, 0, 0), -1)
-    return image_name, intersection_points
+            intersection_points.append(intersection)
+    return intersection_points
+
+def get_fast_bounding_box(image, predictor):
+    intersection_points = get_intersection_points(image)
+    # Assuming we have four intersection points
+    if len(intersection_points) == 4:
+        # Sort points for consistency: [top-left, top-right, bottom-left, bottom-right]
+        intersection_points.sort(key=lambda x: (x[1], x[0]))
+
+        width = distance(intersection_points[0], intersection_points[1])
+        height = distance(intersection_points[0], intersection_points[2])
+        area = width * height
+        
+        if area > .5 * image.shape[0] * image.shape[1]:
+            topLeft = min(intersection_points, key=lambda p: (p[0], p[1]))
+            bottomRight = max(intersection_points, key=lambda p: (p[0], p[1]))
+
+            return {'topLeft': topLeft, 'bottomRight': bottomRight}
+    
+    else:
+        return sam_bounding_box(image, predictor)
+    
+def bounding_box_module(image_num, image, predictor):
+    boundingBox = get_fast_bounding_box(image, predictor)
+
+    bounding_box_image = image.copy()
+
+    top_left = boundingBox["topLeft"]
+    bottom_right = boundingBox["bottomRight"]
+
+    # Calculate width and height
+    width = bottom_right[0] - top_left[0]
+    height = bottom_right[1] - top_left[1]
+
+    # Create a Rectangle patch
+    rect = patches.Rectangle(top_left, width, height, linewidth=5, edgecolor='r', facecolor='none')
+
+    # Explicit figure and axis for bounding box
+    fig, ax = plt.subplots()
+    ax.imshow(bounding_box_image)
+
+    # Add the rectangle to the Axes
+    ax.add_patch(rect)
+
+    ax.set_title(f'Bounding Box in Image {image_num}')
+    plt.savefig("../results/"+str(image_num)+"/bounding_box.png")
+    plt.show(fig)
+
+    return boundingBox

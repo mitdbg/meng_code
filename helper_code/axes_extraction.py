@@ -1,10 +1,4 @@
 import numpy as np
-import boto3
-from PIL import Image
-import cv2
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-
 
 def is_number(s):
     if s == '0':
@@ -163,56 +157,7 @@ def calculate_x_axis(ocr_results, bounding_box, chat_gpt_info):
     else:
         return None, None, None
     
-def get_true_range(image_name, boundingBox, chat_gpt_info):
-    # Initialize the Textract client
-    textract = boto3.client('textract')
-
-    # Load the image file
-    with open(image_name, 'rb') as document:
-        img_test = bytearray(document.read())
-
-    # Call Amazon Textract
-    response = textract.detect_document_text(Document={'Bytes': img_test})
-
-    # Process Textract response to match desired output format
-    ocr_results = []
-    for item in response['Blocks']:
-        if item['BlockType'] == 'LINE' and 'Confidence' in item and item['Confidence'] > 50:  # Adjust confidence as needed
-            text = item['Text']
-            # Extract bounding box coordinates scaled to image dimensions
-            width, height = Image.open(image_name).size
-            box = item['Geometry']['BoundingBox']
-            x = box['Left'] * width
-            y = box['Top'] * height
-            w = box['Width'] * width
-            h = box['Height'] * height
-            box = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]]
-            ocr_results.append((text, box))
-
-    # Visualization (assuming you want to visualize the results similarly)
-    img = cv2.imread(image_name)
-    fig, ax = plt.subplots(figsize=(10, 10))
-    ax.imshow(img)
-
-    for text, box in ocr_results:
-        # Extract the bounding box coordinates
-        start_point = box[0]
-        end_point = box[2]
-        box_width = end_point[0] - start_point[0]
-        box_height = end_point[1] - start_point[1]
-        
-        # Create a Rectangle patch
-        rect = patches.Rectangle(start_point, box_width, box_height, linewidth=1, edgecolor='r', facecolor='none')
-        
-        # Add the rectangle to the Axes
-        ax.add_patch(rect)
-        
-        # Annotate the image with the OCR'ed text
-        ax.text(start_point[0], start_point[1] - 10, text, bbox=dict(fill=False, edgecolor='red', linewidth=2), color='red')
-
-    plt.axis('off')  # Turn off axis numbers and ticks
-    plt.show()
-
+def get_true_range(ocr_results, boundingBox, chat_gpt_info):
     try:
         ymin, ymax, y_scale = calculate_y_axis(ocr_results, boundingBox, chat_gpt_info['y'])
     except:
@@ -265,31 +210,7 @@ def find_nearest_second_y_candidate(ocr_results, point):
 
     return nearest
 
-def get_second_y_range(image_name, boundingBox, second_range):
-    # Initialize the Textract client
-    textract = boto3.client('textract')
-
-    # Load the image file
-    with open(image_name, 'rb') as document:
-        img_test = bytearray(document.read())
-
-    # Call Amazon Textract
-    response = textract.detect_document_text(Document={'Bytes': img_test})
-
-    # Process Textract response to match desired output format
-    ocr_results = []
-    for item in response['Blocks']:
-        if item['BlockType'] == 'LINE' and 'Confidence' in item and item['Confidence'] > 50:  # Adjust confidence as needed
-            text = item['Text']
-            # Extract bounding box coordinates scaled to image dimensions
-            width, height = Image.open(image_name).size
-            box = item['Geometry']['BoundingBox']
-            x = box['Left'] * width
-            y = box['Top'] * height
-            w = box['Width'] * width
-            h = box['Height'] * height
-            box = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]]
-            ocr_results.append((text, box))
+def get_second_y_range(ocr_results, boundingBox, second_range):
 
     top_right = [boundingBox['bottomRight'][0], boundingBox['topLeft'][1]]
     bottom_right = [boundingBox['bottomRight'][0], boundingBox['bottomRight'][1]]
@@ -357,3 +278,19 @@ def get_second_y_range(image_name, boundingBox, second_range):
     else: 
         print("ERROR SECOND RANGE")
         return second_range
+    
+def axis_recalculation_module(prompt, ocr_results, boundingBox):
+    x_axis = prompt["x-axis"]["range"]
+    y_axis = prompt["y-axis"]["range"]
+    x_axis_title = prompt["x-axis"]["title"]
+    y_axis_title = prompt["y-axis"]["title"]
+    second_y_axis_title = prompt["second-y-axis"]["title"]
+
+    x_range, y_range = get_true_range(ocr_results, boundingBox, {'x': x_axis, 'y': y_axis})
+
+    second_y_range = None
+    if "second-y-axis" in prompt and prompt["second-y-axis"]["title"] is not None:
+        print("SECOND RANGE")
+        second_y_range = get_second_y_range(ocr_results, boundingBox, prompt["second-y-axis"]["range"])
+
+    return x_axis_title, y_axis_title, second_y_axis_title, x_range, y_range, second_y_range

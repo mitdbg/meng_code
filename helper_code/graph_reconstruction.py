@@ -29,3 +29,25 @@ def get_filtered_answer(mask, x0, y0, wBox, hBox, max_x, max_y):
             if x <= max_x and y <= max_y and mask[x, y] == 1: 
                 return True
     return False
+
+def get_points_new(color_masks, width, height, boundingBox, color, wBox, hBox, x_axis, y_axis, ocr_mask):
+
+    graph = []
+    mask = color_masks[color]
+
+    for x0 in range(boundingBox["topLeft"][0], boundingBox["bottomRight"][0], wBox):
+        for y0 in range(boundingBox["topLeft"][1], boundingBox["bottomRight"][1], hBox):
+
+            if ocr_mask is not None and ocr_mask[y0, x0] == 1:
+                continue
+            else:
+                x, y = get_middle_coordinate(x0, y0, wBox, hBox)
+                value = get_filtered_answer(mask, x0, y0, wBox, hBox, boundingBox["bottomRight"][0], boundingBox["bottomRight"][1])
+
+                if value: 
+                    graph.append({
+                    "topLeft": (x0, y0), 
+                    "middle": convertPoint((x,y), boundingBox, width, height, x_axis, y_axis), 
+                    })
+    
+    return graph

@@ -27,6 +27,30 @@ def run_pipeline(image_num, min_samples, predictor, model):
 
     coordinates, x_axis_title, y_axis_title, second_y_axis_title, axis_labels, rgb_colors, x_range, y_range, memo, second_y_range = get_reconstructed_plot(image_num, predictor, model, True, 30)
 
+    maximum =max(memo.values())
+    key = None
+    for k, v in memo.items():
+        if v == maximum:
+            key = k
+            break
+    
+    del memo[key]
+
+    # Extract keys and values from the dictionary
+    keys = list(memo.keys())
+    values = list(memo.values())
+
+    # Plotting the histogram
+    plt.bar(keys, values)
+
+    # Adding title and labels
+    plt.title('Frequency Histogram')
+    plt.xlabel('Categories')
+    plt.ylabel('Frequencies')
+
+    # Show the plot
+    plt.show()
+
     plt.figure()
     for index, value in enumerate(coordinates):
         x = []
